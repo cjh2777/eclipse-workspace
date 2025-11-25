@@ -1,0 +1,19 @@
+package lms;
+
+import javax.swing.JFrame;
+
+public class LFrame extends JFrame {
+
+    private static final long serialVersionUID = 1L;
+
+    private LMainPanel lMainPanel;
+
+    public LFrame() {
+        this.setSize(LConstants.LFRAME_W, LConstants.LFRAME_H);
+        this.setLocation(LConstants.LFRAME_X, LConstants.LFRAME_Y);
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+
+        this.lMainPanel = new LMainPanel();
+        this.add(this.lMainPanel);
+    }
+}

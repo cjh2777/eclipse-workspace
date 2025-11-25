@@ -1,0 +1,94 @@
+package lms;
+
+import javax.swing.*;
+import java.awt.*;
+import java.util.HashSet;
+import java.util.Set;
+
+public class LMiridamgi extends JPanel {
+	private static final long serialVersionUID = 1L;
+	private DefaultListModel<String> cartModel;
+    private JList<String> cartList;
+    private JButton addBtn;
+    private JButton confirmBtn;
+    private JButton deleteBtn;
+    private Set<String> cartCodes;
+    private Set<String> finalCodes;
+
+    public LMiridamgi(JList<String> finalList, DefaultListModel<String> finalModel, Set<String> finalCodes) {
+        setLayout(new BorderLayout(8, 8));
+        this.finalCodes = finalCodes;
+        this.cartCodes = new HashSet<>();
+
+        cartModel = new DefaultListModel<>();
+        cartList = new JList<>(cartModel);
+        cartList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+
+        addBtn = new JButton("담기");
+        confirmBtn = new JButton("신청");
+        deleteBtn = new JButton("삭제");
+
+        JPanel topPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        topPanel.add(addBtn);
+        add(topPanel, BorderLayout.NORTH);
+
+        add(new JScrollPane(cartList), BorderLayout.CENTER);
+
+        JPanel bottomPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        bottomPanel.add(confirmBtn);
+        bottomPanel.add(deleteBtn);
+        add(bottomPanel, BorderLayout.SOUTH);
+
+        confirmBtn.addActionListener(e -> {
+            if (cartModel.isEmpty()) {
+                JOptionPane.showMessageDialog(LMiridamgi.this, "장바구니가 비어있습니다.", "알림", JOptionPane.INFORMATION_MESSAGE);
+                return;
+            }
+            for (int i = 0; i < cartModel.size(); i++) {
+                String item = cartModel.get(i);
+                String code = item.split(" - ")[0];
+                if (!finalCodes.contains(code)) {
+                    finalModel.addElement(item);
+                    finalCodes.add(code);
+                }
+            }
+            cartModel.clear();
+            cartCodes.clear();
+            JOptionPane.showMessageDialog(LMiridamgi.this, "선택한 강의를 신청했습니다.", "알림", JOptionPane.INFORMATION_MESSAGE);
+        });
+
+        deleteBtn.addActionListener(e -> {
+            int idxCart = cartList.getSelectedIndex();
+            int idxFinal = finalList.getSelectedIndex();
+            if (idxCart != -1) {
+                String item = cartModel.get(idxCart);
+                String code = item.split(" - ")[0];
+                cartModel.remove(idxCart);
+                cartCodes.remove(code);
+            } else if (idxFinal != -1) {
+                String item = finalModel.get(idxFinal);
+                String code = item.split(" - ")[0];
+                finalModel.remove(idxFinal);
+                finalCodes.remove(code);
+            } else {
+                JOptionPane.showMessageDialog(LMiridamgi.this, "삭제할 항목을 선택하세요.", "알림", JOptionPane.WARNING_MESSAGE);
+            }
+        });
+    }
+
+    public JButton getAddButton() {
+        return addBtn;
+    }
+
+    public void addCourse(String code, String name) {
+        if (finalCodes.contains(code)) {
+            JOptionPane.showMessageDialog(LMiridamgi.this, "이미 신청한 과목입니다.", "경고", JOptionPane.WARNING_MESSAGE);
+        } else if (cartCodes.contains(code)) {
+            JOptionPane.showMessageDialog(LMiridamgi.this, "이미 장바구니에 담은 과목입니다.", "경고", JOptionPane.WARNING_MESSAGE);
+        } else {
+            String item = code + " - " + name;
+            cartModel.addElement(item);
+            cartCodes.add(code);
+        }
+    }
+}

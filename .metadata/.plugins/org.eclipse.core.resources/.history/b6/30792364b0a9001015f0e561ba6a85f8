@@ -1,0 +1,372 @@
+package lms;
+
+import javax.swing.*;
+import javax.swing.border.EmptyBorder;
+import java.awt.*;
+import java.awt.event.*;
+import java.io.*;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.*;
+import java.security.MessageDigest;
+import java.security.SecureRandom;
+import java.util.*;
+
+/**
+ * CourseAuthApp.java
+ * 단일 파일로 동작하는 수강신청 프로그램용 로그인/로그아웃/회원가입 예제 (Java Swing)
+ * - 외부 라이브러리 없이 실행 가능 (CSV 파일 저장)
+ * - SHA-256 + per-user salt 해시
+ * - 한국어 UI
+ *
+ * 컴파일:  javac CourseAuthApp.java
+ * 실행:    java CourseAuthApp
+ *
+ * 생성 파일: users.csv (현재 작업 폴더)
+ * CSV 스키마: username,name,saltHex,passwordHashHex,role
+ */
+public class CourseAuthApp {
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(() -> {
+            UIManager.put("swing.boldMetal", Boolean.FALSE);
+            new LoginFrame().setVisible(true);
+        });
+    }
+}
+
+// ============================= Domain =============================
+class User {
+    final String username;   // 고유 ID
+    final String name;       // 표시 이름
+    final String saltHex;    // 16바이트 salt (hex)
+    final String passwordHashHex; // SHA-256(password+salt)
+    final String role;       // USER | ADMIN 등 (확장용)
+
+    User(String username, String name, String saltHex, String passwordHashHex, String role) {
+        this.username = username;
+        this.name = name;
+        this.saltHex = saltHex;
+        this.passwordHashHex = passwordHashHex;
+        this.role = role == null ? "USER" : role;
+    }
+
+    static String toCsv(User u) {
+        // 간단 CSV: 콤마/개행 금지 가정. 필요시 이스케이프 처리 추가.
+        return String.join(",", Arrays.asList(u.username, u.name, u.saltHex, u.passwordHashHex, u.role));
+    }
+
+    static User fromCsv(String line) {
+        String[] parts = line.split(",", -1);
+        if (parts.length < 5) throw new IllegalArgumentException("잘못된 사용자 레코드");
+        return new User(parts[0], parts[1], parts[2], parts[3], parts[4]);
+    }
+}
+
+// ============================= Persistence =============================
+class UserStore {
+    private static final String FILE_NAME = "users.csv";
+    private final Path path;
+
+    UserStore() {
+        this.path = Paths.get(FILE_NAME);
+        ensureFile();
+    }
+
+    private void ensureFile() {
+        if (!Files.exists(path)) {
+            try {
+                Files.createFile(path);
+                // 기본 admin 계정 생성 (비밀번호: admin1234)
+                AuthUtil util = new AuthUtil();
+                byte[] salt = util.newSalt();
+                String saltHex = AuthUtil.toHex(salt);
+                String hash = util.hashPassword("admin1234", salt);
+                User admin = new User("admin", "관리자", saltHex, hash, "ADMIN");
+                Files.write(path, Collections.singleton(User.toCsv(admin)), StandardCharsets.UTF_8, StandardOpenOption.APPEND);
+            } catch (IOException e) {
+                throw new RuntimeException("users.csv 생성 실패: " + e.getMessage(), e);
+            }
+        }
+    }
+
+    synchronized Optional<User> findByUsername(String username) {
+        try (BufferedReader br = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                if (line.isBlank()) continue;
+                User u = User.fromCsv(line);
+                if (u.username.equalsIgnoreCase(username)) return Optional.of(u);
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        return Optional.empty();
+    }
+
+    synchronized boolean exists(String username) {
+        return findByUsername(username).isPresent();
+    }
+
+    synchronized void save(User user) {
+        try {
+            Files.write(path, Collections.singleton(User.toCsv(user)), StandardCharsets.UTF_8, StandardOpenOption.APPEND);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+}
+
+// ============================= Auth Core =============================
+class AuthUtil {
+    private final SecureRandom random = new SecureRandom();
+
+    byte[] newSalt() {
+        byte[] salt = new byte[16];
+        random.nextBytes(salt);
+        return salt;
+    }
+
+    String hashPassword(String password, byte[] salt) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            md.update(password.getBytes(StandardCharsets.UTF_8));
+            md.update(salt);
+            return toHex(md.digest());
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    static String toHex(byte[] bytes) {
+        StringBuilder sb = new StringBuilder(bytes.length * 2);
+        for (byte b : bytes) sb.append(String.format("%02x", b));
+        return sb.toString();
+    }
+
+    static byte[] fromHex(String hex) {
+        int len = hex.length();
+        byte[] out = new byte[len / 2];
+        for (int i = 0; i < len; i += 2) out[i / 2] = (byte) Integer.parseInt(hex.substring(i, i + 2), 16);
+        return out;
+    }
+}
+
+class AuthService {
+    private final UserStore store = new UserStore();
+    private final AuthUtil util = new AuthUtil();
+
+    private User currentUser = null;
+
+    public Optional<User> getCurrentUser() {
+        return Optional.ofNullable(currentUser);
+    }
+
+    public boolean isLoggedIn() { return currentUser != null; }
+
+    public synchronized User signup(String username, String name, String password) throws IllegalArgumentException {
+        username = username.trim();
+        name = name.trim();
+        if (username.isEmpty() || name.isEmpty() || password == null || password.isEmpty())
+            throw new IllegalArgumentException("모든 항목을 입력하세요.");
+        if (username.contains(",")) throw new IllegalArgumentException("아이디에 콤마(,)는 사용할 수 없습니다.");
+        if (store.exists(username)) throw new IllegalArgumentException("이미 존재하는 아이디입니다.");
+        if (!isStrong(password)) throw new IllegalArgumentException("비밀번호는 8자 이상, 숫자/문자 조합을 권장합니다.");
+
+        byte[] salt = util.newSalt();
+        String saltHex = AuthUtil.toHex(salt);
+        String hash = util.hashPassword(password, salt);
+        User user = new User(username, name, saltHex, hash, "USER");
+        store.save(user);
+        return user;
+    }
+
+    public synchronized User login(String username, String password) throws IllegalArgumentException {
+        User u = store.findByUsername(username.trim())
+                .orElseThrow(() -> new IllegalArgumentException("아이디 또는 비밀번호가 올바르지 않습니다."));
+        String calc = util.hashPassword(password, AuthUtil.fromHex(u.saltHex));
+        if (!calc.equals(u.passwordHashHex)) throw new IllegalArgumentException("아이디 또는 비밀번호가 올바르지 않습니다.");
+        currentUser = u;
+        return u;
+    }
+
+    public synchronized void logout() {
+        currentUser = null;
+    }
+
+    private boolean isStrong(String pw) {
+        if (pw.length() < 8) return false;
+        boolean hasDigit = false, hasLetter = false;
+        for (char c : pw.toCharArray()) {
+            if (Character.isDigit(c)) hasDigit = true;
+            if (Character.isLetter(c)) hasLetter = true;
+        }
+        return hasDigit && hasLetter;
+    }
+}
+
+// ============================= UI (Swing) =============================
+class LoginFrame extends JFrame {
+    private final CardLayout card = new CardLayout();
+    private final JPanel root = new JPanel(card);
+
+    private final AuthService auth = new AuthService();
+
+    LoginFrame() {
+        setTitle("수강신청 - 로그인");
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setSize(420, 300);
+        setLocationRelativeTo(null);
+
+        root.add(new LoginPanel(this, auth), "login");
+        root.add(new MainPanel(this, auth), "main");
+        setContentPane(root);
+        showLogin();
+    }
+
+    void showLogin() { card.show(root, "login"); setTitle("수강신청 - 로그인"); }
+    void showMain()  { card.show(root, "main");  setTitle("수강신청 - 메인"); }
+}
+
+class LoginPanel extends JPanel {
+    private final JTextField tfId = new JTextField(20);
+    private final JPasswordField tfPw = new JPasswordField(20);
+
+    LoginPanel(LoginFrame frame, AuthService auth) {
+        setLayout(new BorderLayout());
+        JPanel form = new JPanel(new GridBagLayout());
+        form.setBorder(new EmptyBorder(16,16,16,16));
+        GridBagConstraints c = new GridBagConstraints();
+        c.insets = new Insets(6,6,6,6);
+        c.fill = GridBagConstraints.HORIZONTAL;
+
+        JLabel title = new JLabel("로그인", SwingConstants.CENTER);
+        title.setFont(title.getFont().deriveFont(Font.BOLD, 18f));
+        add(title, BorderLayout.NORTH);
+
+        c.gridx=0; c.gridy=0; form.add(new JLabel("아이디"), c);
+        c.gridx=1; c.gridy=0; form.add(tfId, c);
+        c.gridx=0; c.gridy=1; form.add(new JLabel("비밀번호"), c);
+        c.gridx=1; c.gridy=1; form.add(tfPw, c);
+
+        JButton btnLogin = new JButton("로그인");
+        JButton btnSignup = new JButton("회원가입");
+
+        JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        buttons.add(btnSignup);
+        buttons.add(btnLogin);
+
+        add(form, BorderLayout.CENTER);
+        add(buttons, BorderLayout.SOUTH);
+
+        btnLogin.addActionListener(e -> {
+            try {
+                auth.login(tfId.getText(), new String(tfPw.getPassword()));
+                JOptionPane.showMessageDialog(this, "로그인 성공", "알림", JOptionPane.INFORMATION_MESSAGE);
+                frame.showMain();
+            } catch (IllegalArgumentException ex) {
+                JOptionPane.showMessageDialog(this, ex.getMessage(), "오류", JOptionPane.ERROR_MESSAGE);
+            }
+        });
+
+        btnSignup.addActionListener(e -> {
+            new SignupDialog(SwingUtilities.getWindowAncestor(this), auth).setVisible(true);
+        });
+
+        // Enter 키로 로그인
+        tfPw.addActionListener(e -> btnLogin.doClick());
+    }
+}
+
+class SignupDialog extends JDialog {
+    SignupDialog(Window owner, AuthService auth) {
+        super(owner, "회원가입", ModalityType.APPLICATION_MODAL);
+        setSize(420, 320);
+        setLocationRelativeTo(owner);
+
+        JTextField tfName = new JTextField(20);
+        JTextField tfId = new JTextField(20);
+        JPasswordField tfPw = new JPasswordField(20);
+        JPasswordField tfPw2 = new JPasswordField(20);
+
+        JPanel p = new JPanel(new GridBagLayout());
+        p.setBorder(new EmptyBorder(12,12,12,12));
+        GridBagConstraints c = new GridBagConstraints();
+        c.insets = new Insets(6,6,6,6);
+        c.fill = GridBagConstraints.HORIZONTAL;
+
+        c.gridx=0; c.gridy=0; p.add(new JLabel("이름"), c);
+        c.gridx=1; c.gridy=0; p.add(tfName, c);
+        c.gridx=0; c.gridy=1; p.add(new JLabel("아이디"), c);
+        c.gridx=1; c.gridy=1; p.add(tfId, c);
+        c.gridx=0; c.gridy=2; p.add(new JLabel("비밀번호"), c);
+        c.gridx=1; c.gridy=2; p.add(tfPw, c);
+        c.gridx=0; c.gridy=3; p.add(new JLabel("비밀번호 확인"), c);
+        c.gridx=1; c.gridy=3; p.add(tfPw2, c);
+
+        JButton ok = new JButton("가입");
+        JButton cancel = new JButton("취소");
+        JPanel bottom = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        bottom.add(cancel); bottom.add(ok);
+
+        setLayout(new BorderLayout());
+        add(p, BorderLayout.CENTER);
+        add(bottom, BorderLayout.SOUTH);
+
+        ok.addActionListener(e -> {
+            String name = tfName.getText();
+            String id = tfId.getText();
+            String pw1 = new String(tfPw.getPassword());
+            String pw2 = new String(tfPw2.getPassword());
+            if (!pw1.equals(pw2)) {
+                JOptionPane.showMessageDialog(this, "비밀번호가 일치하지 않습니다.", "오류", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+            try {
+                auth.signup(id, name, pw1);
+                JOptionPane.showMessageDialog(this, "회원가입 완료! 이제 로그인하세요.");
+                dispose();
+            } catch (IllegalArgumentException ex) {
+                JOptionPane.showMessageDialog(this, ex.getMessage(), "오류", JOptionPane.ERROR_MESSAGE);
+            }
+        });
+
+        cancel.addActionListener(e -> dispose());
+    }
+}
+
+class MainPanel extends JPanel {
+    MainPanel(LoginFrame frame, AuthService auth) {
+        setLayout(new BorderLayout());
+        setBorder(new EmptyBorder(16,16,16,16));
+
+        JLabel welcome = new JLabel();
+        welcome.setFont(welcome.getFont().deriveFont(Font.BOLD, 16f));
+        add(welcome, BorderLayout.NORTH);
+
+        JTextArea info = new JTextArea();
+        info.setEditable(false);
+        info.setLineWrap(true);
+        info.setWrapStyleWord(true);
+        info.setText(
+            "여기는 수강신청 메인 화면 예시입니다.\n" +
+            "- 상단 환영 문구 옆에 [로그아웃] 버튼\n" +
+            "- 아래 영역에 과목 목록, 장바구니, 신청/삭제 버튼 등을 배치하세요.\n" +
+            "\n연동 가이드:\n" +
+            "AuthService.getCurrentUser()로 로그인 사용자 정보를 가져와 권한 체크 및 이름 표시에 이용하세요.\n"
+        );
+        add(new JScrollPane(info), BorderLayout.CENTER);
+
+        JButton btnLogout = new JButton("로그아웃");
+        JPanel topRight = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        topRight.add(btnLogout);
+        add(topRight, BorderLayout.SOUTH);
+
+        // 로그인 사용자 이름 표시
+        auth.getCurrentUser().ifPresent(u -> welcome.setText("환영합니다, " + u.name + "(" + u.username + ") 님"));
+
+        btnLogout.addActionListener(e -> {
+            auth.logout();
+            JOptionPane.showMessageDialog(this, "로그아웃되었습니다.");
+            frame.showLogin();
+        });
+    }
+}

@@ -1,0 +1,35 @@
+package lms;
+
+import java.util.Vector;
+
+import javax.swing.JScrollPane;
+import javax.swing.JTable;
+import javax.swing.table.DefaultTableModel;
+
+public class LTable extends JScrollPane {
+
+    private JTable table;
+    private DefaultTableModel model;
+
+    public LTable(Vector<String> header) {
+        model = new DefaultTableModel(null, header);
+        table = new JTable(model);
+        this.setViewportView(table);
+    }
+
+    public JTable getTable() {
+        return table;   // ← 반드시 있어야 함
+    }
+
+    public void update(String fileName) {
+        LDataAccessObject dao = new LDataAccessObject();
+        Vector<String> rows = dao.findAll(fileName);
+
+        model.setRowCount(0);
+
+        for (String line : rows) {
+            String[] tokens = line.split("\\s+");
+            model.addRow(tokens);
+        }
+    }
+}

@@ -1,0 +1,78 @@
+package lms;
+
+import java.util.Vector;
+
+import javax.swing.JScrollPane;
+import javax.swing.JTable;
+import javax.swing.event.ListSelectionEvent;
+import javax.swing.event.ListSelectionListener;
+import javax.swing.table.DefaultTableModel;
+
+import lms.LConstants.EIndex;
+
+public class LTable extends JScrollPane {
+	private static final long serialVersionUID = 1L;
+
+	private JTable table;
+	private ListSelectionHandler listSselectionHandler;
+	private DefaultTableModel tableModel;
+	private Vector<String> vRows;
+	private LTable next;
+	
+	public LTable(Vector<String> header) {
+		// create a table
+		table = new JTable();
+		this.listSselectionHandler = new ListSelectionHandler();
+		this.table.getSelectionModel().addListSelectionListener(listSselectionHandler);
+		// create a table model
+		tableModel = new DefaultTableModel(null, header);
+		this.table.setModel(tableModel);
+		// place a table
+		this.setViewportView(table);
+		
+	
+	}
+	
+	public void associate(LTable next) {
+		this.next = next;
+		
+	}
+	public void update(String fileName) {	
+		
+		
+		LDataAccessObject dao = new LDataAccessObject();
+		this.vRows = dao.findAll(fileName);
+
+		tableModel.setNumRows(0);
+		for (String line: vRows) {
+			String[] row = new String[1];
+			row[0] = line.split(" ")[1];
+			tableModel.addRow(row);		
+		}	
+		table.changeSelection(0, 0, true, false);
+	}
+	public void updateNext() {
+		if (this.next != null) {
+			
+		
+		int[] selectedRows = table.getSelectedRows();
+		if (selectedRows.length >0) {
+			String line = this.vRows.get(selectedRows[0]);
+			String[] row = line.split(" ");
+			String fileName = row[EIndex.eFileName.ordinal()];
+			this.next.update(fileName);
+			
+			}
+			
+		}
+	}
+	
+	private class ListSelectionHandler implements ListSelectionListener {
+		
+		
+		public void valueChanged(ListSelectionEvent e) {
+			updateNext();
+			
+		}
+	}
+}

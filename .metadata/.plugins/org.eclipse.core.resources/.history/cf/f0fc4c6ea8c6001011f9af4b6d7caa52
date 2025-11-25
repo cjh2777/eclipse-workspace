@@ -1,0 +1,60 @@
+package lms;
+
+import java.util.Vector;
+
+import javax.swing.BoxLayout;
+import javax.swing.JPanel;
+
+import lms.LConstants.EGangjwa;
+
+public class LMainPanel extends JPanel {
+
+    private static final long serialVersionUID = 1L;
+
+    private LSelectionPanel lSelectionPanel;
+    private LTable lDepartment;     // 강좌 테이블
+    private LControlPanel lControlPanel1;
+    private LTable lMiridamgi;
+    private LControlPanel lControlPanel2;
+    private LTable lSincheong;
+
+    public LMainPanel() {
+
+        this.setLayout(new BoxLayout(this, BoxLayout.X_AXIS));
+
+        // 왼쪽 위 : 캠퍼스/대학/학과 3개만 들어있는 패널
+        this.lSelectionPanel = new LSelectionPanel();
+
+        // 왼쪽 아래 : 강좌 테이블
+        Vector<String> header4 = new Vector<String>();
+        for (EGangjwa eGangjwa : EGangjwa.values()) {
+            header4.add(eGangjwa.getText());
+        }
+        this.lDepartment = new LTable(header4);
+
+        // 미리담기/신청
+        Vector<String> header = new Vector<String>();
+        for (EGangjwa eGangjwa : EGangjwa.values()) {
+            header.add(eGangjwa.getText());
+        }
+
+        this.lMiridamgi = new LTable(header);
+        this.lSincheong = new LTable(header);
+
+        // 버튼 연결
+        this.lControlPanel1 = new LControlPanel(this.lDepartment, this.lMiridamgi);
+        this.lControlPanel2 = new LControlPanel(this.lMiridamgi, this.lSincheong);
+
+        // 배치 순서 (ZIP 코드 그대로)
+        JPanel leftPanel = new JPanel();
+        leftPanel.setLayout(new BoxLayout(leftPanel, BoxLayout.Y_AXIS));
+        leftPanel.add(this.lSelectionPanel);
+        leftPanel.add(this.lDepartment);
+
+        this.add(leftPanel);
+        this.add(this.lControlPanel1);
+        this.add(this.lMiridamgi);
+        this.add(this.lControlPanel2);
+        this.add(this.lSincheong);
+    }
+}

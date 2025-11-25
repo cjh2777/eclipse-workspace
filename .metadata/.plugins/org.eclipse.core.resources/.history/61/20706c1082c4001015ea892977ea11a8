@@ -1,0 +1,129 @@
+package lms;
+
+import javax.swing.*;
+import java.awt.*;
+import java.io.*;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.*;
+import java.security.MessageDigest;
+import java.security.SecureRandom;
+import java.util.*;
+
+public class CourseAuthApp {
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(() -> new LoginFrame().setVisible(true));
+    }
+}
+
+class User {
+    final String id;
+    final String name;
+    final String saltHex;
+    final String hashHex;
+    User(String id, String name, String saltHex, String hashHex) {
+        this.id = id; this.name = name; this.saltHex = saltHex; this.hashHex = hashHex;
+    }
+    static User fromCsv(String line) {
+        String[] p = line.split(",", -1);
+        return new User(p[0], p[1], p[2], p[3]);
+    }
+    static String toCsv(User u) {
+        return String.join(",", u.id, u.name, u.saltHex, u.hashHex);
+    }
+}
+
+class UserStore {
+    private static final Path PATH = Paths.get("users.csv");
+    UserStore() {
+        try { if (!Files.exists(PATH)) Files.createFile(PATH); } catch (IOException e) { throw new RuntimeException(e); }
+    }
+    synchronized Optional<User> find(String id) {
+        try {
+            for (String line : Files.readAllLines(PATH, StandardCharsets.UTF_8)) {
+                if (line.isBlank()) continue;
+                User u = User.fromCsv(line);
+                if (u.id.equals(id)) return Optional.of(u);
+            }
+        } catch (IOException e) { throw new RuntimeException(e); }
+        return Optional.empty();
+    }
+    synchronized void save(User u) {
+        try (BufferedWriter bw = Files.newBufferedWriter(PATH, StandardCharsets.UTF_8, StandardOpenOption.APPEND)) {
+            bw.write(User.toCsv(u)); bw.newLine();
+        } catch (IOException e) { throw new RuntimeException(e); }
+    }
+}
+
+class Auth {
+    private final SecureRandom random = new SecureRandom();
+    private final UserStore store = new UserStore();
+    byte[] newSalt() { byte[] s = new byte[16]; random.nextBytes(s); return s; }
+    static String toHex(byte[] b){ StringBuilder sb=new StringBuilder(); for(byte x:b) sb.append(String.format("%02x",x)); return sb.toString();}
+    static byte[] fromHex(String h){ int n=h.length(); byte[] o=new byte[n/2]; for(int i=0;i<n;i+=2) o[i/2]=(byte)Integer.parseInt(h.substring(i,i+2),16); return o;}
+    String hash(String pw, byte[] salt){
+        try{ MessageDigest md=MessageDigest.getInstance("SHA-256"); md.update(pw.getBytes(StandardCharsets.UTF_8)); md.update(salt); byte[] d=md.digest(); return toHex(d);}
+        catch(Exception e){ throw new RuntimeException(e);}
+    }
+    User login(String id, String pw){
+        User u = store.find(id).orElseThrow(() -> new IllegalArgumentException("존재하지 않는 아이디입니다."));
+        if (!hash(pw, fromHex(u.saltHex)).equals(u.hashHex)) throw new IllegalArgumentException("비밀번호가 틀렸습니다.");
+        return u;
+    }
+    void signup(String id, String name, String pw){
+        if (id.isBlank()||name.isBlank()||pw.isBlank()) throw new IllegalArgumentException("모든 항목을 입력하세요.");
+        if (store.find(id).isPresent()) throw new IllegalArgumentException("이미 존재하는 아이디입니다.");
+        byte[] salt = newSalt(); store.save(new User(id, name, toHex(salt), hash(pw, salt)));
+    }
+}
+
+class LoginFrame extends JFrame {
+    /**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
+	private final Auth auth = new Auth();
+    LoginFrame() {
+        setTitle("수강신청 로그인"); setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setSize(420, 280); setLocationRelativeTo(null); setLayout(new BorderLayout(10,10));
+        JPanel form = new JPanel(new GridBagLayout()); GridBagConstraints c=new GridBagConstraints();
+        c.insets=new Insets(6,6,6,6); c.fill=GridBagConstraints.HORIZONTAL;
+        JTextField tfId=new JTextField(18); JPasswordField tfPw=new JPasswordField(18);
+        c.gridx=0;c.gridy=0; form.add(new JLabel("아이디"),c); c.gridx=1; form.add(tfId,c);
+        c.gridx=0;c.gridy=1; form.add(new JLabel("비밀번호"),c); c.gridx=1; form.add(tfPw,c);
+        JButton login=new JButton("로그인"), signup=new JButton("회원가입");
+        JPanel btn=new JPanel(new FlowLayout(FlowLayout.RIGHT)); btn.add(signup); btn.add(login);
+        add(form,BorderLayout.CENTER); add(btn,BorderLayout.SOUTH);
+        login.addActionListener(e->{ try{
+            auth.login(tfId.getText(), new String(tfPw.getPassword()));
+            new LMain().initialize(); dispose();
+        }catch(Exception ex){ JOptionPane.showMessageDialog(this, ex.getMessage(),"오류",JOptionPane.ERROR_MESSAGE);} });
+        signup.addActionListener(e-> new SignupDialog(this, auth).setVisible(true));
+        tfPw.addActionListener(e->login.doClick());
+    }
+}
+
+class SignupDialog extends JDialog {
+    /**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
+
+	SignupDialog(JFrame owner, Auth auth){
+        super(owner,"회원가입",true);
+        setSize(420,340); setLocationRelativeTo(owner); setLayout(new GridBagLayout());
+        GridBagConstraints c=new GridBagConstraints(); c.insets=new Insets(6,6,6,6); c.fill=GridBagConstraints.HORIZONTAL;
+        JTextField tfName=new JTextField(18), tfId=new JTextField(18);
+        JPasswordField tfPw=new JPasswordField(18), tfPw2=new JPasswordField(18);
+        c.gridx=0;c.gridy=0; add(new JLabel("이름"),c); c.gridx=1; add(tfName,c);
+        c.gridx=0;c.gridy=1; add(new JLabel("아이디"),c); c.gridx=1; add(tfId,c);
+        c.gridx=0;c.gridy=2; add(new JLabel("비밀번호"),c); c.gridx=1; add(tfPw,c);
+        c.gridx=0;c.gridy=3; add(new JLabel("비밀번호 확인"),c); c.gridx=1; add(tfPw2,c);
+        JButton ok=new JButton("가입"), cancel=new JButton("취소"); JPanel b=new JPanel(new FlowLayout(FlowLayout.RIGHT)); b.add(cancel); b.add(ok);
+        c.gridx=0;c.gridy=4;c.gridwidth=2; add(b,c);
+        ok.addActionListener(e->{ String p1=new String(tfPw.getPassword()), p2=new String(tfPw2.getPassword());
+            if(!p1.equals(p2)){ JOptionPane.showMessageDialog(this,"비밀번호가 다릅니다.","오류",JOptionPane.ERROR_MESSAGE); return; }
+            try{ auth.signup(tfId.getText(), tfName.getText(), p1); JOptionPane.showMessageDialog(this,"가입 완료"); dispose();}
+            catch(Exception ex){ JOptionPane.showMessageDialog(this, ex.getMessage(),"오류",JOptionPane.ERROR_MESSAGE); }});
+        cancel.addActionListener(e->dispose());
+    }
+}

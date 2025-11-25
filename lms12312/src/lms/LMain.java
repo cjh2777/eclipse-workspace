@@ -1,0 +1,12 @@
+public class LMain {
+    private LFrame lFrame;
+
+    public LMain() {
+        this.lFrame = new LFrame();
+        this.lFrame.setVisible(true);  
+    }
+
+    public static void main(String[] args) {
+        new LMain();
+    }
+}

@@ -1,0 +1,73 @@
+package lms;
+
+import java.util.Vector;
+import javax.swing.BoxLayout;
+import javax.swing.JPanel;
+
+public class LSelectionPanel extends JPanel {
+
+    private LTable lRoot;
+    private LTable lCampus;
+    private LTable lCollege;
+    private LTable lDepartment;
+
+    public LSelectionPanel() {
+
+        this.setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
+
+        Vector<String> header1 = new Vector<>();
+        header1.add("캠퍼스");
+        lRoot = new LTable(header1);
+        lRoot.update("root.txt");
+        this.add(lRoot);
+
+        Vector<String> header2 = new Vector<>();
+        header2.add("대학");
+        lCampus = new LTable(header2);
+        this.add(lCampus);
+
+        Vector<String> header3 = new Vector<>();
+        header3.add("학과");
+        lCollege = new LTable(header3);
+        this.add(lCollege);
+
+        Vector<String> header4 = new Vector<>();
+        header4.add("강좌정보");
+        lDepartment = new LTable(header4);
+        this.add(lDepartment);
+
+        lRoot.getTable().getSelectionModel().addListSelectionListener(e -> {
+            if (!e.getValueIsAdjusting()) {
+                int row = lRoot.getTable().getSelectedRow();
+                if (row == -1) return;
+                String campusName = (String) lRoot.getTable().getValueAt(row, 0);
+                String fileName = campusName.toLowerCase() + ".txt";
+                lCampus.update(fileName);
+                lCollege.update("");
+                lDepartment.update("");
+            }
+        });
+
+        lCampus.getTable().getSelectionModel().addListSelectionListener(e -> {
+            if (!e.getValueIsAdjusting()) {
+                int row = lCampus.getTable().getSelectedRow();
+                if (row == -1) return;
+                String collegeName = (String) lCampus.getTable().getValueAt(row, 0);
+                String fileName = collegeName + ".txt";
+                lCollege.update(fileName);
+                lDepartment.update("");
+            }
+        });
+
+        lCollege.getTable().getSelectionModel().addListSelectionListener(e -> {
+            if (!e.getValueIsAdjusting()) {
+                int row = lCollege.getTable().getSelectedRow();
+                if (row == -1) return;
+                String deptName = (String) lCollege.getTable().getValueAt(row, 0);
+                String fileName = deptName + ".txt";
+                lDepartment.update(fileName);
+            }
+        });
+    }
+}
+

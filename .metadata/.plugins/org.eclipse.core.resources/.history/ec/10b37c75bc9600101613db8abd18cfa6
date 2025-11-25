@@ -1,0 +1,19 @@
+package asciinew;
+
+import java.io.*;
+
+public class ASCII {
+    public static void main(String[] args) throws IOException {
+        BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
+        
+        while (true) {  // 무한 반복
+            System.out.print("문자 입력 (종료하려면 q 입력): ");
+            char ch = br.readLine().charAt(0); // 한 글자 입력 받기
+            }
+
+            byte num = (byte) ch;  // 아스키 코드 값
+            System.out.println("아스키 코드: " + num);
+        }
+    }
+}
+

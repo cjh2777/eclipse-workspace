@@ -1,0 +1,51 @@
+package lms;
+
+import java.awt.Dimension;
+import java.util.Vector;
+
+import javax.swing.BoxLayout;
+import javax.swing.JPanel;
+
+import lms.LConstants.EGangjwa;
+
+public class LMainPanel extends JPanel {
+
+    private static final long serialVersionUID = 1L;
+
+    private LSelectionPanel lSelectionPanel;
+    private LControlPanel lControlPanel1;
+    private LTable lMiridamgi;
+    private LControlPanel lControlPanel2;
+    private LTable lSincheong;
+
+    public LMainPanel() {
+
+        this.setLayout(new BoxLayout(this, BoxLayout.X_AXIS));
+
+        lSelectionPanel = new LSelectionPanel();
+        lSelectionPanel.setPreferredSize(new Dimension(320, 600));  // 왼쪽 세로 3테이블 정상화
+        this.add(lSelectionPanel);
+
+        Vector<String> header = new Vector<String>();
+        for (EGangjwa eGangjwa : EGangjwa.values()) {
+            header.add(eGangjwa.getText());
+        }
+
+        lMiridamgi = new LTable(header);
+        lMiridamgi.setPreferredSize(new Dimension(300, 600));
+
+        lSincheong = new LTable(header);
+        lSincheong.setPreferredSize(new Dimension(300, 600));
+
+        lControlPanel1 = new LControlPanel(lSelectionPanel.getDepartmentTable(), lMiridamgi);
+        lControlPanel1.setPreferredSize(new Dimension(40, 600));
+
+        lControlPanel2 = new LControlPanel(lMiridamgi, lSincheong);
+        lControlPanel2.setPreferredSize(new Dimension(40, 600));
+
+        this.add(lControlPanel1);
+        this.add(lMiridamgi);
+        this.add(lControlPanel2);
+        this.add(lSincheong);
+    }
+}

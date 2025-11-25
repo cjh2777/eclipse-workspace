@@ -1,0 +1,10 @@
+package lms;
+
+import javax.swing.SwingUtilities;
+
+public class LMain {
+    private LView view;
+    public LMain(){ view=new LView(); }
+    public void initialize(){ view.initialize(); view.setVisible(true); }
+    public static void main(String[] args){ SwingUtilities.invokeLater(() -> new LMain().initialize()); }
+}

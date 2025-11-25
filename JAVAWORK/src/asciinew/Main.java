@@ -1,0 +1,26 @@
+package asciinew;
+
+import java.io.*;
+
+public class Main {
+    public static void main(String[] args) throws IOException {
+        BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
+
+        while (true) {
+            System.out.print("문자 입력: ");
+            char ch = br.readLine().charAt(0); 
+            byte num = (byte) ch; 
+
+            switch (ch) {
+                case 'x': // 소문자 x
+                case 'X': // 대문자 X
+                    System.out.println("프로그램 종료");
+                    return; 
+
+                default:
+                    System.out.println("아스키 코드: " + num);
+                    break;
+            }
+        }
+    }
+}

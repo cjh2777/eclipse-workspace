@@ -1,0 +1,103 @@
+package lms;
+
+import java.util.Vector;
+
+import javax.swing.BoxLayout;
+import javax.swing.JPanel;
+
+import lms.LConstants.EGangjwa;
+import lms.LConstants.EIndex;
+import lms.LConstants.EIndexName;
+
+public class LSelectionPanel extends JPanel {
+
+	private static final long serialVersionUID = 1L;
+
+	public LSelectionPanel() {
+		this.setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
+
+		JPanel indexPanel = new JPanel();
+
+		indexPanel.setLayout(new BoxLayout(indexPanel, BoxLayout.X_AXIS));
+
+		Vector<String> header;
+
+		header = new Vector<String>();
+
+		header.add(EIndexName.eCampus.getText());
+		LTable lCampus = new LTable(header);
+		lCampus.update("root");
+		indexPanel.add(lCampus);
+
+		header = new Vector<String>();
+		header.add(EIndexName.eCollege.getText());
+		LTable lCollege = new LTable(header);
+		indexPanel.add(lCollege);
+
+		header = new Vector<String>();
+		header.add(EIndexName.eDepartment.getText());
+		LTable lDepartment = new LTable(header);
+		indexPanel.add(lDepartment);
+		
+
+		lCampus.getTable().getSelectionModel().addListSelectionListener(e -> {
+		    if (!e.getValueIsAdjusting()) {
+
+		        int row = lCampus.getTable().getSelectedRow();
+		        if (row == -1) return;
+
+		   
+		        String campusName = (String) lCampus.getTable().getValueAt(row, 0);
+
+		     
+		        String fileName = "college_" + campusName + ".txt";
+
+		  
+		        lCollege.update(fileName);
+		    }
+		});
+
+		lCollege.getTable().getSelectionModel().addListSelectionListener(e -> {
+		    if (!e.getValueIsAdjusting()) {
+
+		        int row = lCollege.getTable().getSelectedRow();
+		        if (row == -1) return;
+
+		        String collegeName = (String) lCollege.getTable().getValueAt(row, 0);
+
+		        String fileName = "department_" + collegeName + ".txt";
+
+		        lDepartment.update(fileName);
+		    }
+		});
+
+		lDepartment.getTable().getSelectionModel().addListSelectionListener(e -> {
+		    if (!e.getValueIsAdjusting()) {
+
+		        int row = lDepartment.getTable().getSelectedRow();
+		        if (row == -1) return;
+
+		        String deptName = (String) lDepartment.getTable().getValueAt(row, 0);
+
+		        String fileName = "lecture_" + deptName + ".txt";
+
+		        lLecture.update(fileName);
+		    }
+		});
+
+
+		this.add(indexPanel);
+
+		header = new Vector<String>();
+		for(EGangjwa eGangjwa: EGangjwa.values()) {
+			header.add(eGangjwa.getText());
+		}
+
+		// header.add("Campus");
+		// header.add("College");
+		// header.add("Department");
+
+		LTable lLecture = new LTable(header);
+		this.add(lLecture);
+	}
+}

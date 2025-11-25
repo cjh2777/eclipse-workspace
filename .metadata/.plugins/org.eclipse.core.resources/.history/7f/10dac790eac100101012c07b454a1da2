@@ -1,0 +1,18 @@
+package lms;
+
+public class RootItem {
+    public final int id;
+    public final String name;
+    public final String file;
+
+    public RootItem(int id, String name, String file) {
+        this.id = id;
+        this.name = name;
+        this.file = file;
+    }
+
+    @Override
+    public String toString() {
+        return name;   // 콤보박스에 이름만 보이게
+    }
+}

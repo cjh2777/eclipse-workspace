@@ -1,0 +1,138 @@
+package lms;
+
+import javax.swing.*;
+import javax.swing.border.TitledBorder;
+import java.awt.*;
+import java.awt.event.ActionEvent;
+
+
+public class LView extends JFrame {
+
+    private static final long serialVersionUID = 1L;
+
+    // 4분할 
+    private JPanel gridPanel;
+    private final JPanel[] cells = new JPanel[4];
+
+    
+    private LMiridamgi lMiridamgi;
+
+    // 툴바&메뉴에서 공유할 액션
+    private Action newAct, exportAct, exitAct;
+    private JToolBar toolBar;
+
+    public LView() {
+        super("Programming HW - Menubar, Toolbar, 4 Panels");
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setSize(900, 600);
+        setLocationRelativeTo(null);
+
+        buildActions();
+        setJMenuBar(buildMenuBar());
+        add(buildToolBar(), BorderLayout.NORTH);
+
+        // 화면 4분할
+        gridPanel = new JPanel(new GridLayout(2, 2, 8, 8));
+        gridPanel.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
+        for (int i = 0; i < 4; i++) {
+            cells[i] = createCellPanel(i);
+            gridPanel.add(cells[i]);
+        }
+        add(gridPanel, BorderLayout.CENTER);
+    }
+
+    // 외부에서 호출하는 초기화 
+    public void initialize() {
+        // 필요 시 지연 초기화 위치
+    }
+
+    //UI 빌더들 
+
+    private void buildActions() {
+        newAct = new AbstractAction("New") {
+            @Override public void actionPerformed(ActionEvent e) {
+                // 데모: 각 패널 배경 리셋
+                for (JPanel p : cells) {
+                    p.setBackground(UIManager.getColor("Panel.background"));
+                }
+                JOptionPane.showMessageDialog(LView.this, "새 작업이 시작되었습니다.");
+            }
+        };
+
+        exportAct = new AbstractAction("Export") {
+            @Override public void actionPerformed(ActionEvent e) {
+                // 데모: 파일 저장 대화상자만 띄우기
+                JFileChooser chooser = new JFileChooser();
+                chooser.setDialogTitle("Export");
+                int result = chooser.showSaveDialog(LView.this);
+                if (result == JFileChooser.APPROVE_OPTION) {
+                    JOptionPane.showMessageDialog(
+                            LView.this, "Export to: " + chooser.getSelectedFile().getAbsolutePath());
+                }
+            }
+        };
+
+        exitAct = new AbstractAction("Exit") {
+            @Override public void actionPerformed(ActionEvent e) {
+                dispose();
+            }
+        };
+    }
+
+    private JMenuBar buildMenuBar() {
+        JMenuBar bar = new JMenuBar();
+
+        JMenu file = new JMenu("File");
+        file.add(new JMenuItem(newAct));
+        file.add(new JMenuItem(exportAct));
+        file.addSeparator();
+        file.add(new JMenuItem(exitAct));
+
+        JMenu view = new JMenu("View");
+        JCheckBoxMenuItem toggleToolbar = new JCheckBoxMenuItem("Show Toolbar", true);
+        toggleToolbar.addActionListener(ev -> toolBar.setVisible(toggleToolbar.isSelected()));
+        view.add(toggleToolbar);
+
+        JMenu help = new JMenu("Help");
+        JMenuItem about = new JMenuItem("About");
+        about.addActionListener(ev ->
+                JOptionPane.showMessageDialog(this,
+                        "Menubar + Toolbar + 4 Panels Demo\n© 2025"));
+        help.add(about);
+
+        bar.add(file);
+        bar.add(view);
+        bar.add(help);
+        return bar;
+    }
+
+    private JToolBar buildToolBar() {
+        toolBar = new JToolBar();
+        toolBar.setFloatable(false);
+        toolBar.add(new JButton(newAct));
+        toolBar.add(new JButton(exportAct));
+        toolBar.addSeparator();
+        toolBar.add(new JButton(exitAct));
+        return toolBar;
+    }
+
+    private JPanel createCellPanel(int index) {
+        JPanel p = new JPanel(new BorderLayout());
+        p.setBorder(BorderFactory.createTitledBorder(
+                BorderFactory.createLineBorder(new Color(180, 180, 180)),
+                "Panel " + (index + 1),
+                TitledBorder.LEFT, TitledBorder.TOP));
+
+        if (index == 0) {
+            // LMiridamgi + 라디오버튼 예시를 좌상단 패널에 배치
+            lMiridamgi = new LMiridamgi();
+            p.add(lMiridamgi, BorderLayout.NORTH);
+        } else {
+            // 나머지는 단순 콘텐츠
+            JLabel label = new JLabel("콘텐츠 영역 " + (index + 1), SwingConstants.CENTER);
+            label.setFont(label.getFont().deriveFont(Font.PLAIN, 16f));
+            p.add(label, BorderLayout.CENTER);
+        }
+        return p;
+    }
+}

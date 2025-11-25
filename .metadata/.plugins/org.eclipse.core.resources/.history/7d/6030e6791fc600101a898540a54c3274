@@ -1,0 +1,79 @@
+ppackage lms;
+
+import java.awt.GridLayout;
+import java.io.File;
+import java.util.Scanner;
+import java.util.Vector;
+
+import javax.swing.JList;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.event.ListSelectionEvent;
+import javax.swing.event.ListSelectionListener;
+
+public class LSelectionPanel extends JPanel {
+
+    private static final long serialVersionUID = 1L;
+
+    JList<String> listCampus;
+    JList<String> listCollege;
+    JList<String> listMajor;
+
+    public LSelectionPanel() {
+
+        this.setLayout(new GridLayout(1, 3));
+
+        listCampus = new JList<>();
+        listCollege = new JList<>();
+        listMajor = new JList<>();
+
+        // 1) 캠퍼스 목록 불러오기
+        listCampus.setListData(findAll("campus"));
+
+        // 스크롤 적용
+        this.add(new JScrollPane(listCampus));
+        this.add(new JScrollPane(listCollege));
+        this.add(new JScrollPane(listMajor));
+
+        // 캠퍼스 클릭 → 대학 불러오기
+        listCampus.addListSelectionListener(new ListSelectionListener() {
+            @Override
+            public void valueChanged(ListSelectionEvent e) {
+                if (!e.getValueIsAdjusting()) {
+                    String campus = listCampus.getSelectedValue();
+                    listCollege.setListData(findAll(campus));
+                    listMajor.setListData(new Vector<>());  // 학과 초기화
+                }
+            }
+        });
+
+        // 대학 클릭 → 학과 불러오기
+        listCollege.addListSelectionListener(new ListSelectionListener() {
+            @Override
+            public void valueChanged(ListSelectionEvent e) {
+                if (!e.getValueIsAdjusting()) {
+                    String college = listCollege.getSelectedValue();
+                    listMajor.setListData(findAll(college));
+                }
+            }
+        });
+    }
+
+    // txt 파일 읽기 함수
+    public Vector<String> findAll(String fileName) {
+        Vector<String> rows = new Vector<>();
+        File file = new File("data/" + fileName + ".txt");
+
+        try {
+            Scanner scanner = new Scanner(file);
+            while (scanner.hasNextLine()) {
+                rows.add(scanner.nextLine().trim());
+            }
+            scanner.close();
+        } catch (Exception e) {
+            System.out.println("[WARN] 파일 없음: " + file.getName());
+        }
+
+        return rows;
+    }
+}

@@ -1,0 +1,62 @@
+package lms;
+
+import java.util.Vector;
+
+import javax.swing.BoxLayout;
+import javax.swing.JPanel;
+
+import lms.LControlPanel;
+import lms.LConstants.EGangjwa;
+
+public class LMainPanel extends JPanel {
+
+	private static final long serialVersionUID = 1L;
+	
+	private LSelectionPanel lSelectionPanel;
+	private LControlPanel lControlPanel1;
+	private LTable lMiridamgi;
+	private LControlPanel lControlPanel2;
+	private LTable lSincheong;
+	
+	public LMainPanel() {
+		
+		this.setLayout(new BoxLayout(this, BoxLayout.X_AXIS));
+		
+		
+		
+		this.lSelectionPanel = new LSelectionPanel();
+		this.add(this.lSelectionPanel);
+
+		this.lControlPanel1 = new LControlPanel();
+		this.add(this.lControlPanel1);
+		
+		// Miridamgi Column
+				Vector<String> header = new Vector<String>();
+				
+				// for 돌린 버전
+				for(EGangjwa eGangjwa: EGangjwa.values()) {
+					header.add(eGangjwa.getText());
+				}
+				
+				// 일일이 다 지정한 버전
+//		header.add(EGangjwa.eId.getText());
+//		header.add(EGangjwa.eName.getText());
+//		header.add(EGangjwa.eTime.getText());
+//		header.add(EGangjwa.eLecturer.getText());
+
+		this.lMiridamgi = new LTable(header);
+		this.add(this.lMiridamgi);
+		
+		// Sincheong column
+		header = new Vector<String>();
+		for(EGangjwa eGangjwa: EGangjwa.values()) {
+			header.add(eGangjwa.getText());
+		}
+	
+		this.lControlPanel2 = new LControlPanel();
+		this.add(this.lControlPanel2);
+
+		this.lSincheong = new LTable(header);
+		this.add(this.lSincheong);
+	}
+}

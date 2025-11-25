@@ -1,0 +1,97 @@
+package lms;
+
+import java.util.Vector;
+
+import javax.swing.BoxLayout;
+import javax.swing.JPanel;
+import javax.swing.JTable;
+
+import lms.LConstants.EGangjwa;
+
+public class LSelectionPanel extends JPanel {
+
+    private static final long serialVersionUID = 1L;
+
+    private LTable lRoot;
+    private LTable lCampus;
+    private LTable lCollege;
+    private LTable lDepartment;
+
+    public LSelectionPanel() {
+
+        this.setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
+
+        Vector<String> header1 = new Vector<String>();
+        header1.add("코드");
+        header1.add("캠퍼스");
+        header1.add("파일키");
+        lRoot = new LTable(header1);
+        lRoot.update("root");
+        hideKeyColumns(lRoot);
+        this.add(lRoot);
+
+        Vector<String> header2 = new Vector<String>();
+        header2.add("코드");
+        header2.add("대학");
+        header2.add("파일키");
+        lCampus = new LTable(header2);
+        hideKeyColumns(lCampus);
+        this.add(lCampus);
+
+        Vector<String> header3 = new Vector<String>();
+        header3.add("코드");
+        header3.add("학과");
+        header3.add("파일키");
+        lCollege = new LTable(header3);
+        hideKeyColumns(lCollege);
+        this.add(lCollege);
+
+        Vector<String> header4 = new Vector<String>();
+        for (EGangjwa eGangjwa : EGangjwa.values()) {
+            header4.add(eGangjwa.getText());
+        }
+        lDepartment = new LTable(header4);
+        this.add(lDepartment);
+
+        lRoot.getTable().getSelectionModel().addListSelectionListener(e -> {
+            if (!e.getValueIsAdjusting()) {
+                int row = lRoot.getTable().getSelectedRow();
+                if (row == -1) return;
+                String fileKey = (String) lRoot.getTable().getValueAt(row, 2);
+                lCampus.update(fileKey);
+                lCollege.update("");
+                lDepartment.update("");
+            }
+        });
+
+        lCampus.getTable().getSelectionModel().addListSelectionListener(e -> {
+            if (!e.getValueIsAdjusting()) {
+                int row = lCampus.getTable().getSelectedRow();
+                if (row == -1) return;
+                String fileKey = (String) lCampus.getTable().getValueAt(row, 2);
+                lCollege.update(fileKey);
+                lDepartment.update("");
+            }
+        });
+
+        lCollege.getTable().getSelectionModel().addListSelectionListener(e -> {
+            if (!e.getValueIsAdjusting()) {
+                int row = lCollege.getTable().getSelectedRow();
+                if (row == -1) return;
+                String fileKey = (String) lCollege.getTable().getValueAt(row, 2);
+                lDepartment.update(fileKey);
+            }
+        });
+    }
+
+    private void hideKeyColumns(LTable table) {
+        JTable jt = table.getTable();
+        if (jt.getColumnCount() < 3) return;
+        jt.removeColumn(jt.getColumnModel().getColumn(0));
+        jt.removeColumn(jt.getColumnModel().getColumn(jt.getColumnCount() - 1));
+    }
+
+    public LTable getDepartmentTable() {
+        return lDepartment;
+    }
+}
